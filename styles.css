@@ -1695,8 +1695,12 @@
     align-items: center;
     gap: 8px;
     padding: 9px 14px;
-    background: rgba(10,132,255,.07);
+    background: var(--panel);
+    background-image: linear-gradient(rgba(10,132,255,.07), rgba(10,132,255,.07));
     border-bottom: 1px solid rgba(10,132,255,.16);
+    position: relative;
+    z-index: 5;
+    flex: 0 0 auto;
     font-size: 12px;
     font-weight: 900;
     color: var(--text);
@@ -1786,3 +1790,21 @@
     line-height: 1.35;
     word-break: break-word;
   }
+
+
+/* ✅ 뽀모 미참가: 타이머 영역 은은한 회색 처리 */
+body.pomo-nonpart #timer-wrap,
+body.pomo-nonpart .pomo-status-line{
+  filter: grayscale(1);
+  opacity: .55;
+  transition: filter .3s ease, opacity .3s ease;
+}
+
+/* ✅ 반복(루틴) 투두 배지 */
+.todo-routine-badge{
+  font-size: 11px;
+  font-weight: 950;
+  color: #0A84FF;
+  flex: 0 0 auto;
+  margin-left: 4px;
+}

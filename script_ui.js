@@ -828,15 +828,17 @@
     if (!btn) return;
     if (_pomoParticipating) {
       btn.dataset.state = "on";
-      btn.textContent = "🔔 참가 중";
+      btn.textContent = "🔔 뽀모 참가 중 · 알림 ON";
       btn.classList.remove("danger");
       btn.classList.add("primary");
     } else {
       btn.dataset.state = "off";
-      btn.textContent = "🔕 참가하기";
+      btn.textContent = "🔕 뽀모 미참가 · 알림 OFF";
       btn.classList.remove("primary");
       btn.classList.add("danger");
     }
+    // ✅ 미참가 시 뽀모 UI 전체를 은은한 회색으로
+    document.body.classList.toggle("pomo-nonpart", !_pomoParticipating);
   }
 
   async function togglePomodoroParticipation() {
@@ -859,7 +861,7 @@
     const nextCollapsed = (typeof forceState === "boolean") ? !forceState : !collapsed;
 
     detail.classList.toggle("collapsed", nextCollapsed);
-    btn.textContent = nextCollapsed ? "▾" : "▴";
+    btn.textContent = "🎵";
 
     try { localStorage.setItem(_nickKey("pomoDetailCollapsed"), nextCollapsed ? "true" : "false"); } catch(e) {}
   }
@@ -1153,7 +1155,7 @@
         const btn = document.getElementById("pomo-detail-toggle");
         if (detail && btn) {
           detail.classList.toggle("collapsed", c === "true");
-          btn.textContent = (c === "true") ? "▾" : "▴";
+          btn.textContent = "🎵";
         }
       }
     } catch(e) {}

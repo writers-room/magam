@@ -464,8 +464,10 @@
     if (!banner) {
       banner = document.createElement("div");
       banner.id = "pin-banner";
+      const pomoLine = document.getElementById("pomo-status-line");
       const header = sidebar.querySelector(".header");
-      if (header) header.insertAdjacentElement("afterend", banner);
+      if (pomoLine) pomoLine.insertAdjacentElement("afterend", banner);
+      else if (header) header.insertAdjacentElement("afterend", banner);
       else sidebar.prepend(banner);
     }
     const isAdmin = sessionStorage.getItem("adminPinOk") === "true";
@@ -690,7 +692,7 @@
     let bubbleStyle = "";
     if (isBigEmoji) {
       bubbleClass = "msg-bubble msg-bubble-emoji";
-      bubbleStyle = `font-size:36px;line-height:1.1;padding:2px 6px;
+      bubbleStyle = `font-size:40px;line-height:1.1;padding:2px 6px;
                      background:transparent!important;box-shadow:none!important;border:none!important;`;
     } else if (mentionedMe) {
       bubbleClass = "msg-bubble mention-me";

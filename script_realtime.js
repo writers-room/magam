@@ -151,12 +151,12 @@
 
   function statusLabel(code) {
     return ({
-      idle: "대기 중…",
+      idle: "휴식 중",
       writing: "집필 중",
       focus: "집중 중",
       rest: "휴식 중",
       away: "자리 비움"
-    })[code] || "대기 중…";
+    })[code] || "휴식 중";
   }
 
   function statusClass(code) {
@@ -174,7 +174,7 @@
 
     const goalText = document.getElementById("db-today-goal-text")?.value || "";
     const done = document.getElementById("db-today-done")?.value || "";
-    const statusChoice = document.getElementById("db-status")?.value || "idle";
+    const statusChoice = document.getElementById("db-status")?.value || "rest";
 
     if (force) {
       window.saveDailyLog?.();
@@ -501,7 +501,7 @@
   function requireAdminPin() {
     if (sessionStorage.getItem("adminPinOk") === "true") return true;
     const p = prompt("관리자 PIN을 입력해 주세요");
-    if (p === "595959") {
+    if (p === "2580") {
       sessionStorage.setItem("adminPinOk", "true");
       window.refreshAdminUiVisibility?.();
       return true;

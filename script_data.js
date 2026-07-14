@@ -54,8 +54,17 @@
     return window._todoItems || [];
   }
 
+  function _normalizeRoutineTodos(items) {
+    const today = ymd(Date.now());
+    return (Array.isArray(items) ? items : []).map(x =>
+      (x && x.routine && x.done && x.doneDay !== today)
+        ? ({ ...x, done: false, doneDay: "" })
+        : x
+    );
+  }
+
   function setTodoItemsToUI(items) {
-    window._todoItems = Array.isArray(items) ? items : [];
+    window._todoItems = _normalizeRoutineTodos(items);
     renderTodoList();
   }
 
@@ -112,11 +121,20 @@
 
         <div class="todo-menu" role="menu">
           <button type="button" class="edit" role="menuitem">✏️ 수정</button>
+          <button type="button" class="routine" role="menuitem">${item.routine ? "🔁 반복 해제" : "🔁 매일 반복"}</button>
           <button type="button" class="danger delete" role="menuitem">🗑 삭제</button>
         </div>
       `;
 
       li.querySelector(".todo-text").textContent = item.text || "";
+
+      if (item.routine) {
+        const badge = document.createElement("span");
+        badge.className = "todo-routine-badge";
+        badge.textContent = "🔁";
+        badge.title = "매일 반복되는 투두예요 (자정에 체크가 풀려요)";
+        li.querySelector(".todo-left")?.appendChild(badge);
+      }
 
       li.querySelector(".todo-check").addEventListener("change", (e) => {
         toggleTodo(item.id, e.target.checked);
@@ -143,6 +161,12 @@
         e.stopPropagation();
         menu.classList.remove("open");
         editTodo(item.id);
+      });
+
+      li.querySelector(".todo-menu .routine").addEventListener("click", (e) => {
+        e.stopPropagation();
+        menu.classList.remove("open");
+        toggleRoutineTodo(item.id);
       });
 
       li.querySelector(".todo-menu .delete").addEventListener("click", (e) => {
@@ -193,9 +217,33 @@
   }
 
   function toggleTodo(id, done) {
-    const items = getTodoItemsFromUI().map(x => x.id === id ? ({...x, done: !!done}) : x);
+    const items = getTodoItemsFromUI().map(x =>
+      x.id === id ? ({...x, done: !!done, doneDay: done ? ymd(Date.now()) : ""}) : x
+    );
     setTodoItemsToUI(items);
     savePersonalDataDebounced();
+  }
+
+  function toggleRoutineTodo(id) {
+    const items = getTodoItemsFromUI().map(x =>
+      x.id === id ? ({...x, routine: !x.routine}) : x
+    );
+    setTodoItemsToUI(items);
+    savePersonalData();
+  }
+
+  function clearCompletedTodos() {
+    const items = getTodoItemsFromUI();
+    const doneCount = items.filter(x => x.done).length;
+    if (!doneCount) { alert("완료된 투두가 없어요!"); return; }
+    if (!confirm(`완료된 투두 ${doneCount}개를 정리할까요?\n(🔁 반복 투두는 삭제되지 않고 체크만 풀려요)`)) return;
+
+    const next = items
+      .filter(x => !(x.done && !x.routine))
+      .map(x => x.done ? ({...x, done: false, doneDay: ""}) : x);
+
+    setTodoItemsToUI(next);
+    savePersonalData();
   }
 
   function editTodo(id) {
@@ -223,6 +271,8 @@
 
   window.bindTodoInputEnter = bindTodoInputEnter;
   window.addTodoFromUI = addTodoFromUI;
+  window.toggleRoutineTodo = toggleRoutineTodo;
+  window.clearCompletedTodos = clearCompletedTodos;
 
   // =====================================================
   // ✅ Personal data (Firebase)
@@ -234,7 +284,7 @@
       todoItems: getTodoItemsFromUI(),
       todayGoalText: document.getElementById("db-today-goal-text")?.value || "",
       todayDone: document.getElementById("db-today-done")?.value || "",
-      statusChoice: document.getElementById("db-status")?.value || "writing"
+      statusChoice: document.getElementById("db-status")?.value || "rest"
     };
 
     db.ref("users/" + myNick).set(data);
@@ -272,13 +322,15 @@
           document.getElementById("db-today-done").value = data.todayDone || "";
         }
         if (document.getElementById("db-status")) {
-          document.getElementById("db-status").value = data.statusChoice || "writing";
+          const st = (data.statusChoice && data.statusChoice !== "idle") ? data.statusChoice : "rest";
+          document.getElementById("db-status").value = st;
         }
       } else {
         setTodoItemsToUI([]);
       }
 
       updatePersonalProgressUI();
+      renderQuickStatusBtn();
       setTimeout(fetchWeeklyStats, 300);
 
       // ✅ NEW: 참가/사운드 설정 로드(닉 귀속)
@@ -318,7 +370,11 @@
       setTodoItemsToUI(payload.todoItems || []);
       if (document.getElementById("db-today-goal-text")) document.getElementById("db-today-goal-text").value = payload.todayGoalText || "";
       if (document.getElementById("db-today-done")) document.getElementById("db-today-done").value = payload.todayDone || "";
-      if (document.getElementById("db-status")) document.getElementById("db-status").value = payload.status || "writing";
+      if (document.getElementById("db-status")) {
+        const st = (payload.status && payload.status !== "idle") ? payload.status : "rest";
+        document.getElementById("db-status").value = st;
+      }
+      renderQuickStatusBtn();
 
       // ✅ 로컬 테마도 복구
       if (payload.themeName) {
@@ -371,6 +427,30 @@
     if (typeof updateStatus === "function") updateStatus(true);
   }
 
+  // ✅ 원터치 집필/휴식 전환
+  function toggleWritingStatus() {
+    const sel = document.getElementById("db-status");
+    if (!sel) return;
+    sel.value = (sel.value === "writing") ? "rest" : "writing";
+    renderQuickStatusBtn();
+    saveNow();
+  }
+
+  function renderQuickStatusBtn() {
+    const btn = document.getElementById("status-quick-btn");
+    const sel = document.getElementById("db-status");
+    if (!btn || !sel) return;
+    if (sel.value === "writing") {
+      btn.textContent = "☕ 휴식으로 전환";
+      btn.classList.remove("primary");
+    } else {
+      btn.textContent = "✍️ 집필 시작!";
+      btn.classList.add("primary");
+    }
+  }
+
+  window.toggleWritingStatus = toggleWritingStatus;
+  window.renderQuickStatusBtn = renderQuickStatusBtn;
   window.savePersonalData = savePersonalData;
   window.savePersonalDataDebounced = savePersonalDataDebounced;
   window.saveNow = saveNow;
