@@ -457,26 +457,28 @@
   }
 
   function _renderPinBanner(data) {
-    const sidebar = document.querySelector(".chat-sidebar");
-    if (!sidebar) return;
-    let banner = document.getElementById("pin-banner");
-    if (!data || !data.text) { banner?.remove(); return; }
-    if (!banner) {
-      banner = document.createElement("div");
-      banner.id = "pin-banner";
-      const pomoLine = document.getElementById("pomo-status-line");
-      const header = sidebar.querySelector(".header");
-      if (pomoLine) pomoLine.insertAdjacentElement("afterend", banner);
-      else if (header) header.insertAdjacentElement("afterend", banner);
-      else sidebar.prepend(banner);
+    const slot = document.getElementById("pin-banner-slot");
+
+    // ✅ 이전 방식(동적 삽입)으로 생성된 배너가 남아있으면 전부 제거 (유령 배너 방지)
+    document.querySelectorAll("#pin-banner, .pin-banner").forEach(el => {
+      if (!slot || el.parentElement !== slot) el.remove();
+    });
+
+    if (!slot) return;
+
+    if (!data || !data.text) {
+      slot.innerHTML = "";
+      return;
     }
+
     const isAdmin = sessionStorage.getItem("adminPinOk") === "true";
-    banner.className = "pin-banner";
-    banner.innerHTML = `
-      <span class="pin-icon">📌</span>
-      <span class="pin-text">${escapeHtml(data.text)}</span>
-      <span class="pin-by">— ${escapeHtml(data.by || "")}</span>
-      ${isAdmin ? `<button class="pin-remove-btn" onclick="removePinnedMessage()" title="핀 제거">✕</button>` : ""}
+    slot.innerHTML = `
+      <div id="pin-banner" class="pin-banner">
+        <span class="pin-icon">📌</span>
+        <span class="pin-text">${escapeHtml(data.text)}</span>
+        <span class="pin-by">— ${escapeHtml(data.by || "")}</span>
+        ${isAdmin ? `<button class="pin-remove-btn" onclick="removePinnedMessage()" title="핀 제거">✕</button>` : ""}
+      </div>
     `;
   }
 
