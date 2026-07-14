@@ -501,7 +501,7 @@
   function requireAdminPin() {
     if (sessionStorage.getItem("adminPinOk") === "true") return true;
     const p = prompt("관리자 PIN을 입력해 주세요");
-    if (p === "2580") {
+    if (p === "595959") {
       sessionStorage.setItem("adminPinOk", "true");
       window.refreshAdminUiVisibility?.();
       return true;
