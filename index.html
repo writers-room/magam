@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+  <title>작가님들의 작업실 ✍️</title>
+
+  <!-- Firebase (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+<!-- Join modal -->
+<div id="modal">
+  <div class="modal-content">
+    <div class="modal-title">작가님들의 작업실 ✍️</div>
+    <div class="modal-sub">필명을 입력하면, 오늘의 랜덤 이모지 프사가 함께 지급돼요.</div>
+    <input
+      type="text"
+      id="nick-input"
+      placeholder="필명을 입력해 주세요"
+      style="width:100%; padding:12px; border-radius:14px;"
+      autocomplete="off"
+      autocapitalize="off"
+      spellcheck="false"
+    >
+    <div style="height:10px;"></div>
+    <button id="join-btn" class="ghost-btn primary" onclick="join()" style="width:100%;">입장하기</button>
+  </div>
+</div>
+
+<!-- Exit screen -->
+<div id="exit-screen" class="hidden">
+  <div class="modal-content" style="text-align:center;">
+    <div class="modal-title">✅ 퇴장 완료</div>
+    <div class="modal-sub" style="font-size:13px;">
+      이제 창을 닫아도 됩니다. ☕<br>
+      오늘도 집필 고생하셨습니다… 최고로 멋져요 🧡
+    </div>
+    <div style="height:14px;"></div>
+    <button class="ghost-btn primary" style="width:100%;" onclick="window.close()">창 닫기</button>
+    <div class="hint" style="margin-top:10px;">
+      ※ 브라우저 정책 때문에 버튼으로 창이 안 닫힐 수 있어요.<br>
+      그땐 그냥 탭/창을 닫아주면 됩니다 🙂
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div id="settings-modal" onclick="closeSettings()">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <div class="modal-title">⚙️ 대시보드 설정</div>
+    <div class="modal-sub">채팅 · 테마 · 타이머 · 개인정보 설정을 한 곳에서 정돈해요.</div>
+
+    <div class="tabs" role="tablist" aria-label="settings tabs">
+      <button class="tab active" data-tab="chat" onclick="openTab('chat')">💬 채팅</button>
+      <button class="tab" data-tab="theme" onclick="openTab('theme')">🎨 테마</button>
+      <button class="tab" data-tab="timer" onclick="openTab('timer')">⏰ 타이머</button>
+      <button class="tab" data-tab="privacy" onclick="openTab('privacy')">🔒 개인정보</button>
+    </div>
+
+    <div class="tab-panels">
+
+      <!-- Chat panel -->
+      <div class="panel active" id="panel-chat">
+        <div class="set-block">
+          <div class="set-title">채팅 가로 넓이</div>
+          <input id="set-chat-width" type="range" min="260" max="620" step="10" style="width:100%;">
+          <div class="hint">현재: <span id="chat-width-label"></span>px</div>
+        </div>
+        <div class="set-block">
+          <div class="set-title">레이아웃</div>
+          <div class="mini-row">
+            <button class="ghost-btn" onclick="setLayout(1)">채팅 오른쪽</button>
+            <button class="ghost-btn" onclick="setLayout(-1)">채팅 왼쪽</button>
+          </div>
+          <div class="hint">작업 흐름에 맞춰 "메인 + 채팅"의 위치를 바꿀 수 있어요.</div>
+        </div>
+      </div>
+
+      <!-- Theme panel -->
+      <div class="panel" id="panel-theme">
+        <div class="set-block">
+          <div class="set-title">테마 선택</div>
+          <div class="hint">동그라미는 "배경(왼쪽) + 내 말풍선(오른쪽)" 반반 미리보기예요.</div>
+          <div style="height:10px;"></div>
+          <div class="theme-grid" id="theme-palette"></div>
+        </div>
+      </div>
+
+      <!-- Timer panel -->
+      <div class="panel" id="panel-timer">
+        <div class="set-block">
+          <div class="set-title">타이머 표시</div>
+          <label style="display:flex; align-items:center; gap:10px; font-weight:950;">
+            <input id="set-timer-hide" type="checkbox">
+            타이머 기본 숨김
+          </label>
+          <div class="hint">타이머는 잔잔한 그라데이션 + "임박" 때만 살짝 강조돼요.</div>
+        </div>
+        <div class="set-block">
+          <div class="set-title">임박 강조 기준</div>
+          <input id="set-warn-min" type="range" min="1" max="30" step="1" style="width:100%;">
+          <div class="hint">마감 <span id="warn-min-label"></span>분 이하면 강조가 들어가요.</div>
+        </div>
+      </div>
+
+      <!-- Privacy panel -->
+      <div class="panel" id="panel-privacy">
+        <div class="set-block">
+          <div class="set-title">내 데이터</div>
+          <div class="hint">
+            개인 작업 영역(투두/메모/목표/오늘 누적)은 <b>Firebase</b>에 <b>필명 기준</b>으로 저장돼요.<br>
+            필명이 같으면 덮어써질 수 있으니, 중복되지 않는 필명을 권장해요.
+          </div>
+        </div>
+
+        <div class="set-block">
+          <!-- 이스터에그: 7번 클릭하면 관리자 모드 진입 -->
+          <div class="set-title" id="reset-title">로컬 설정 초기화</div>
+          <button class="ghost-btn" onclick="resetLocalSettings()">이 기기에서 설정 초기화</button>
+          <div class="hint">테마/채팅 너비/레이아웃/타이머 표시 설정만 초기화돼요.</div>
+
+          <div id="admin-easter" class="hidden" style="margin-top:12px;">
+            <div class="hint">🕵️‍♀️ 관리자 모드가 발견됐어요. 로그인 후에만 버튼이 나타나요.</div>
+            <div style="height:10px;"></div>
+            <button id="admin-login-btn" class="ghost-btn" type="button" style="width:100%;">🛡️ 관리자 모드 로그인</button>
+
+            <!-- 관리자 전용 기능 (로그인 후 표시) -->
+            <div id="admin-tools" class="hidden" style="margin-top:12px;display:flex;flex-direction:column;gap:10px;">
+
+              <!-- 핀 메시지 설정 -->
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <div class="set-title">📌 채팅 상단 핀 메시지</div>
+                <input
+                  type="text"
+                  id="admin-pin-input"
+                  placeholder="고정할 메시지를 입력해요"
+                  style="width:100%;"
+                >
+                <div style="display:flex;gap:8px;">
+                  <button class="ghost-btn primary" type="button" style="flex:1;"
+                    onclick="(async () => {
+                      const v = document.getElementById('admin-pin-input')?.value?.trim();
+                      if (!v) return alert('메시지를 입력해주세요!');
+                      await setPinnedMessage(v, myNick);
+                      document.getElementById('admin-pin-input').value = '';
+                      alert('핀 메시지가 설정됐어요 📌');
+                    })()">
+                    📌 핀 설정
+                  </button>
+                  <button class="ghost-btn danger" type="button" style="flex:1;"
+                    onclick="removePinnedMessage()">
+                    🗑 핀 제거
+                  </button>
+                </div>
+                <div class="hint">채팅 상단에 공지처럼 고정돼요. 모든 접속자에게 보여요.</div>
+              </div>
+
+              <!-- 채팅 전체 삭제 -->
+              <div>
+                <button id="admin-clear-btn" class="ghost-btn danger" type="button" style="width:100%;">🧹 채팅 전체 삭제</button>
+                <div class="hint">주의: 되돌릴 수 없어요.</div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <button class="ghost-btn" style="width:100%;" onclick="closeSettings()">닫기</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="main-workspace">
+    <div class="common-area">
+      <div class="header">
+        <span>🤝 공동 집필 현황</span>
+        <div class="mini-row">
+          <button class="font-btn" type="button" onclick="decreaseFont()" title="글씨 작게">−</button>
+          <span id="font-size-pill" class="font-pill" title="현재 글씨 크기">15px</span>
+          <button class="font-btn" type="button" onclick="increaseFont()" title="글씨 크게">+</button>
+          <button class="ghost-btn primary" onclick="openSettings()">⚙️ 설정</button>
+          <button class="ghost-btn danger" onclick="leaveRoom()">🚪 나가기</button>
+        </div>
+      </div>
+
+      <!-- Shared Pomodoro -->
+      <div id="timer-wrap">
+        <div class="timer-main">
+          <div id="timer-pill">
+            <span>🍅</span>
+            <span id="timer-text" class="pill-muted">뽀모도로 대기 중… 위에서 집중/휴식 시간을 정하고 시작해보세요 🍅</span>
+          </div>
+          <div class="pomo-mini-row">
+            <div class="pomo-progress" title="현재 세션 진행률">
+              <div id="pomo-bar"></div>
+            </div>
+            <div id="today-session-count" class="pomo-session-pill" title="오늘 완료한 작업 세션 수">
+              오늘 집중 0회
+            </div>
+          </div>
+        </div>
+
+        <div class="timer-controls">
+          <div id="pomo-setup" class="pomo-setup">
+            <label class="pomo-setup-field" title="집중 세션 시간(분)">
+              <span class="pomo-setup-label">🍅집중</span>
+              <input id="pomo-work-min" type="number" min="1" max="180" step="1" value="25" inputmode="numeric">
+              <span class="pomo-setup-unit">분</span>
+            </label>
+            <label class="pomo-setup-field" title="휴식 세션 시간(분)">
+              <span class="pomo-setup-label">☕휴식</span>
+              <input id="pomo-rest-min" type="number" min="1" max="60" step="1" value="5" inputmode="numeric">
+              <span class="pomo-setup-unit">분</span>
+            </label>
+            <span id="pomo-setup-running" class="pomo-setup-running hidden"></span>
+          </div>
+
+          <button class="ghost-btn compact primary" onclick="startPomodoro()" title="위에서 정한 시간으로 뽀모도로를 시작해요">▶ 시작</button>
+          <button id="pomo-opt-btn" class="ghost-btn compact" data-state="on"
+                  onclick="togglePomodoroParticipation()"
+                  title="개인별로 알림음을 끄고/켜요">
+            🔔 참가 중
+          </button>
+          <button class="ghost-btn compact" onclick="stopPomodoro()" title="정지">정지</button>
+          <button id="pomo-detail-toggle" class="ghost-btn compact" onclick="togglePomoDetail()" title="뽀모 상세 설정 접기/펼치기">
+            ▾
+          </button>
+        </div>
+
+        <div id="pomo-detail" class="pomo-detail collapsed">
+          <div class="pomo-detail-inner">
+            <div class="pomo-detail-head">
+              <div class="title">⚙️ 뽀모 상세 설정</div>
+              <div class="sub">자주 안 바꾸는 건 여기로 넣었어요</div>
+            </div>
+            <div id="pomo-sound-mini"></div>
+            <div class="pomo-advanced">
+              <div class="adv-title">⏱️ (추후 확장) 작업/휴식 시간, 자동 시작 등</div>
+              <div class="adv-sub">지금은 UI 자리만 잡아둘게요</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="user-cards-grid" id="user-cards"></div>
+    </div>
+
+    <div class="personal-area">
+      <div class="personal-grid">
+        <div>
+          <h4 style="margin:0 0 10px;">📌 나의 투두</h4>
+          <div class="todo-wrap">
+            <div class="todo-add">
+              <button class="todo-plus" type="button" onclick="addTodoFromUI()">＋</button>
+              <input id="todo-input" class="todo-input" type="text" placeholder="할 일 추가…" />
+            </div>
+            <ul id="todo-list" class="todo-list"></ul>
+            <div class="mini-hint">체크하면 취소선 · ⋯ 에서 수정/삭제 ✨</div>
+          </div>
+        </div>
+
+        <div>
+          <h4 style="margin:0 0 10px;">🎯 오늘 목표 / 상태</h4>
+          <div style="display:grid; gap:10px;">
+            <label class="field-label">
+              <span class="field-title">오늘의 한줄 목표(공유됨)</span>
+              <input
+                type="text"
+                id="db-today-goal-text"
+                oninput="savePersonalDataDebounced()"
+                style="width:100%;"
+                placeholder="예: 15화 씬 전개 끝내기"
+              >
+            </label>
+            <label class="field-label">
+              <span class="field-title">오늘 누적(선택)</span>
+              <input
+                type="number"
+                id="db-today-done"
+                oninput="savePersonalDataDebounced(); updatePersonalProgressUI()"
+                style="width:100%;"
+                placeholder="예: 800"
+              >
+            </label>
+            <div class="mini-hint" id="today-progress-text">오늘 누적: 0자</div>
+            <label class="field-label">
+              <span class="field-title">내 스테이터스(공유됨)</span>
+              <select id="db-status" oninput="savePersonalDataDebounced()" style="width:100%;">
+                <option value="writing">집필 중</option>
+                <option value="idle">대기 중…</option>
+                <option value="focus">집중 중</option>
+                <option value="rest">휴식 중</option>
+                <option value="away">자리 비움</option>
+              </select>
+            </label>
+            <div class="mini-row">
+              <button class="ghost-btn primary" onclick="saveNow()">💾 저장</button>
+            </div>
+            <div class="mini-hint">저장 버튼을 누르면 "공동 집필 현황 카드"에 즉시 반영돼요.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT SIDEBAR -->
+  <div class="chat-sidebar">
+    <div class="header">
+      <span id="my-info">Chat</span>
+      <div class="mini-row">
+        <div id="admin-area" class="hidden">
+          <button class="admin-btn" onclick="clearAllChat()">전체 삭제 🔥</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="chat-box"></div>
+
+    <button id="new-msg-float" class="new-msg-float hidden" type="button">
+      새 메시지 <span id="new-msg-count">0</span>개 ↓
+    </button>
+
+    <!-- 멘션 자동완성 드롭다운 -->
+    <div id="mention-dropdown" role="listbox" aria-label="멘션 대상 선택"></div>
+
+    <!-- 답장 미리보기 바 (답장 중일 때만 표시) -->
+    <div id="reply-preview-bar" class="reply-preview-bar hidden">
+      <div class="reply-preview-body">
+        <div class="reply-preview-label" id="reply-preview-label"></div>
+        <div class="reply-preview-excerpt" id="reply-preview-excerpt"></div>
+      </div>
+      <button type="button" id="reply-preview-close" class="reply-preview-close" title="답장 취소">✕</button>
+    </div>
+
+    <div class="input-area">
+      <textarea id="message" rows="1"></textarea>
+      <button class="send-btn" onclick="send()">▲</button>
+    </div>
+  </div>
+</div>
+
+<!-- 멘션 토스트 (container 밖) -->
+<div id="mention-toast" role="alert" aria-live="polite">
+  <span class="toast-dot"></span>
+  <span id="mention-toast-text">누군가 나를 멘션했어요!</span>
+</div>
+
+
+  <!-- Core → UI → Chat → Data → Realtime 순서 -->
+  <script src="fortune_data.js"></script>
+  <script src="script_core.js"></script>
+  <script src="script_ui.js"></script>
+  <script src="script_chat.js"></script>
+  <script src="script_data.js"></script>
+  <script src="script_realtime.js"></script>
+
+  <script>
+    window.addEventListener("load", () => {
+      try {
+        if (typeof window.init === "function") window.init();
+      } catch (e) {
+        console.error("[init error]", e);
+        alert("초기화 중 오류가 발생했어요. 콘솔(F12) 로그를 확인해 주세요.");
+      }
+    });
+  </script>
+</body>
+</html>
