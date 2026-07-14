@@ -1313,9 +1313,7 @@
   }
 
   #btn-share, #btn-stop-share, #btn-watch, #btn-share-stop, #share-panel, #watch-modal { display:none !important; }
-</style>
 
-<style>
   /* Mobile/Chat Header Online Pills */
   #my-info{
     display: inline-flex;
@@ -1351,9 +1349,7 @@
     box-shadow: 0 0 0 3px rgba(52,199,89,.14);
   }
   .online-more{ border-style: dashed; opacity: .9; }
-</style>
 
-<style>
   /* 뽀모 상세의 "추후 확장" 완전 제거 */
   .pomo-advanced,
   .adv-title,
@@ -1361,9 +1357,7 @@
   .pomo-detail-head .sub{
     display:none !important;
   }
-</style>
 
-<style>
   /* THEME PATCH OVERRIDES (SAFE) */
   :root[data-is-dark="true"] button{
     color: rgba(255,255,255,.92) !important;
@@ -1385,9 +1379,7 @@
 
   :root[data-is-dark="true"] .ghost-btn.primary{ color: rgba(255,255,255,.92) !important; }
   :root[data-is-dark="true"] .ghost-btn.danger{ color: rgba(255,255,255,.92) !important; }
-</style>
 
-<style>
   /* =====================================================
      ✅ TODO LIST (1줄 1개 + ... 메뉴)
      ===================================================== */
@@ -1560,9 +1552,7 @@
     font-weight: 950;
   }
   
-</style>
 
-<style>
   /* =====================================================
      ✅ 멘션(@필명) 스타일
      ===================================================== */
@@ -1684,9 +1674,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-</style>
 
-<style>
   /* =====================================================
      핀 배너
      ===================================================== */
