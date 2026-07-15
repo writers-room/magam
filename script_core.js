@@ -241,6 +241,11 @@
     _joining = true;
 
     try {
+      // ✅ [FIX] 관리자 인증은 필명이 아닌 탭에 남아 있었음 →
+      // 입장할 때마다 초기화해서, 재입장한 사람이 자동으로 관리자 취급되는 것을 방지
+      try { sessionStorage.removeItem("adminPinOk"); } catch(e) {}
+      try { window.refreshAdminUiVisibility?.(); } catch(e) {}
+
       detachListeners();
 
       myNick = input;
@@ -309,6 +314,9 @@
     _presenceDisconnectArmed = false;
     _myJoinTs = 0;
     _clearSessionId();
+
+    try { sessionStorage.removeItem("adminPinOk"); } catch(e) {}
+    try { window.refreshAdminUiVisibility?.(); } catch(e) {}
 
     document.getElementById("my-info").innerText = "Chat";
     document.getElementById("exit-screen").classList.remove("hidden");
