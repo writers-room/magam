@@ -37,14 +37,14 @@
   // Firebase config
   // =====================================================
   const firebaseConfig = {
-    apiKey: "AIzaSyBi1oSQPZrZzUk4RDW9VVbLzwaOTxJahD8",
-    authDomain: "magamm-904c2.firebaseapp.com",
-    databaseURL: "https://magamm-904c2-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "magamm-904c2",
-    storageBucket: "magamm-904c2.firebasestorage.app",
-    messagingSenderId: "7341312881",
-    appId: "1:7341312881:web:8be9c23e88f0460c45c4d0",
-    measurementId: "G-WLSCNH1VW9"
+    apiKey: "AIzaSyCzkYB9Q4E2B3mrF1tL55HtUhIV0BffXQM",
+    authDomain: "writer-chat.firebaseapp.com",
+    databaseURL: "https://writer-chat-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "writer-chat",
+    storageBucket: "writer-chat.firebasestorage.app",
+    messagingSenderId: "165593059767",
+    appId: "1:165593059767:web:112c0aef5e47b1f6941832",
+    measurementId: "G-BGBC8BJQLB"
   };
 
   try {
@@ -270,6 +270,7 @@
       window.addEventListener("beforeunload", _handleBeforeUnload, { once: true });
       await _writeJoinSystemMessageOnce();
 
+      callIfFn("recordAttendance");
       callIfFn("loadPersonalData");
       callIfFn("updateStatus", true);
       callIfFn("listenStatus");

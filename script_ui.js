@@ -1097,14 +1097,14 @@
   // =====================================================
   // ✅ Font size (유지)
   // =====================================================
-  const FONT_MIN = 13;
-  const FONT_MAX = 19;
+  const FONT_MIN = 12;
+  const FONT_MAX = 24;
   const FONT_STEP = 1;
 
   function getCurrentFontSize() {
     const v = getComputedStyle(document.documentElement).getPropertyValue("--font-size").trim().replace("px","");
     const n = parseInt(v, 10);
-    return Number.isFinite(n) ? n : 15;
+    return Number.isFinite(n) ? n : 18;
   }
 
   function setFontSize(px) {

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✍️</text></svg>">
-  <title>작가님들의 작업실 ✍️</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍭</text></svg>">
+  <title>🍭벨사탕 작업실🍭 ✍️</title>
 
   <!-- Firebase (compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
@@ -17,7 +17,7 @@
 <!-- Join modal -->
 <div id="modal">
   <div class="modal-content">
-    <div class="modal-title">작가님들의 작업실 ✍️</div>
+    <div class="modal-title">🍭벨사탕 작업실🍭 ✍️</div>
     <div class="modal-sub">필명을 입력하면, 오늘의 랜덤 이모지 프사가 함께 지급돼요.</div>
     <input
       type="text"
@@ -161,6 +161,25 @@
                 <div class="hint">채팅 상단에 공지처럼 고정돼요. 모든 접속자에게 보여요.</div>
               </div>
 
+              <!-- 입장 히스토리 ON/OFF -->
+              <div>
+                <div class="set-title">🕘 입장 시 이전 대화 표시</div>
+                <button id="admin-history-btn" class="ghost-btn" type="button" style="width:100%;"
+                  onclick="toggleChatHistoryVisible()">🕘 히스토리 모드 전환</button>
+                <div style="height:8px;"></div>
+                <button id="admin-history-count-btn" class="ghost-btn" type="button" style="width:100%;"
+                  onclick="setHistoryCount()">🔢 표시 개수 설정</button>
+                <div class="hint">모드는 [전체 공개 → 관리자만 → 숨김] 순으로 바뀌어요. 개수는 10~300개까지 설정할 수 있어요.</div>
+              </div>
+
+              <!-- 접속 기록 -->
+              <div>
+                <div class="set-title">📋 접속 기록 (최근 7일)</div>
+                <button class="ghost-btn" type="button" style="width:100%;"
+                  onclick="showAttendanceLog()">📋 접속한 작가님 보기</button>
+                <div class="hint">날짜별로 접속한 필명을 확인할 수 있어요. 7일이 지나면 자동 삭제돼요.</div>
+              </div>
+
               <!-- 채팅 전체 삭제 -->
               <div>
                 <button id="admin-clear-btn" class="ghost-btn danger" type="button" style="width:100%;">🧹 채팅 전체 삭제</button>
@@ -185,7 +204,7 @@
         <span>🤝 공동 집필 현황</span>
         <div class="mini-row">
           <button class="font-btn" type="button" onclick="decreaseFont()" title="글씨 작게">−</button>
-          <span id="font-size-pill" class="font-pill" title="현재 글씨 크기">15px</span>
+          <span id="font-size-pill" class="font-pill" title="현재 글씨 크기">18px</span>
           <button class="font-btn" type="button" onclick="increaseFont()" title="글씨 크게">+</button>
           <button class="ghost-btn primary" onclick="openSettings()">⚙️ 설정</button>
           <button class="ghost-btn danger" onclick="leaveRoom()">🚪 나가기</button>
