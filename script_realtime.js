@@ -461,6 +461,11 @@
       const mode = conf.mode || (conf.enabled === false ? "off" : "on");
       const isAdminNow = sessionStorage.getItem("adminPinOk") === "true";
       showHist = (mode === "on") || (mode === "admin" && isAdminNow);
+      // ✅ 관리자가 '이전 채팅 불러오기'를 누른 경우: 모드와 무관하게 1회 표시
+      if (window._forceHistOnce) {
+        showHist = true;
+        window._forceHistOnce = false;
+      }
       histCount = Math.max(10, Math.min(300, parseInt(conf.count ?? 100, 10) || 100));
     } catch(e) {}
 
@@ -493,13 +498,19 @@
           const mode = conf.mode || (conf.enabled === false ? "off" : "on");
           const count = Math.max(10, Math.min(300, parseInt(conf.count ?? 100, 10) || 100));
           window._historyConfCache = { mode, count };
-          const btn = document.getElementById("admin-history-btn");
-          if (btn) btn.textContent =
-            mode === "on"    ? `🕘 히스토리: 전체 공개 (${count}개)` :
-            mode === "admin" ? `🛡️ 히스토리: 관리자만 (${count}개)` :
-                               "🙈 히스토리: 숨김";
-          const cbtn = document.getElementById("admin-history-count-btn");
-          if (cbtn) cbtn.textContent = `🔢 표시 개수 설정 (현재 ${count}개)`;
+
+          // 설정 패널 동기화 (열려 있으면)
+          const radio = document.querySelector(`input[name="hist-mode"][value="${mode}"]`);
+          if (radio) radio.checked = true;
+          const cntInput = document.getElementById("hist-count-input");
+          if (cntInput && document.activeElement !== cntInput) cntInput.value = String(count);
+          const label = document.getElementById("hist-current-label");
+          if (label) {
+            const modeTxt =
+              mode === "on"    ? "🕘 전체 공개" :
+              mode === "admin" ? "🛡️ 관리자만" : "🙈 숨김";
+            label.textContent = `현재 적용 중: ${modeTxt} · ${count}개`;
+          }
         });
       }
     } catch(e) {}
@@ -548,62 +559,53 @@
     if (p === "2580") {
       sessionStorage.setItem("adminPinOk", "true");
       window.refreshAdminUiVisibility?.();
-
-      // ✅ 관리자 인증 즉시 채팅을 다시 불러와서,
-      // "관리자만" 모드의 과거 히스토리가 로그인하는 순간 바로 보이게 함
-      try { if (myNick) window.listenMessages?.(); } catch(e) {}
-
       return true;
     }
     alert("PIN이 올바르지 않습니다.");
     return false;
   }
 
-  async function toggleChatHistoryVisible() {
+  // ✅ 히스토리 노출 설정: 라디오 + 개수 입력 → '설정 적용' 버튼으로만 반영
+  async function applyHistoryConfig() {
     if (!requireAdminPin()) return;
-    let conf = {};
-    try {
-      const snap = await db.ref("chatMeta/showHistory").once("value");
-      conf = snap.val() || {};
-    } catch(e) {}
-    const cur = conf.mode || (conf.enabled === false ? "off" : "on");
-    const next = cur === "on" ? "admin" : cur === "admin" ? "off" : "on";
-    const count = Math.max(10, Math.min(300, parseInt(conf.count ?? 100, 10) || 100));
 
-    await db.ref("chatMeta/showHistory").set({
-      mode: next,
-      count,
-      updatedBy: myNick || "admin",
-      at: Date.now()
-    });
-    alert(
-      next === "on"    ? "🕘 히스토리: 전체 공개 — 모든 입장자에게 이전 대화가 보여요." :
-      next === "admin" ? "🛡️ 히스토리: 관리자만 — 관리자로 로그인한 사람만 이전 대화가 보여요." :
-                         "🙈 히스토리: 숨김 — 아무에게도 이전 대화가 보이지 않아요.");
-  }
+    const sel = document.querySelector('input[name="hist-mode"]:checked');
+    const mode = sel ? sel.value : "on";
+    const n = parseInt(document.getElementById("hist-count-input")?.value, 10);
 
-  async function setHistoryCount() {
-    if (!requireAdminPin()) return;
-    let conf = {};
-    try {
-      const snap = await db.ref("chatMeta/showHistory").once("value");
-      conf = snap.val() || {};
-    } catch(e) {}
-    const curCount = Math.max(10, Math.min(300, parseInt(conf.count ?? 100, 10) || 100));
-    const input = prompt("입장 시 보여줄 이전 대화 개수 (10~300)", String(curCount));
-    if (input === null) return;
-    const n = parseInt(input, 10);
     if (!Number.isFinite(n) || n < 10 || n > 300) {
-      alert("10에서 300 사이의 숫자를 입력해 주세요!");
+      alert("표시 개수는 10에서 300 사이의 숫자로 입력해 주세요!");
       return;
     }
+    if (!["on", "admin", "off"].includes(mode)) return;
+
+    const modeTxt =
+      mode === "on"    ? "🕘 전체 공개 — 모든 입장자에게 이전 대화가 보여요" :
+      mode === "admin" ? "🛡️ 관리자만 — 관리자로 로그인한 사람만 볼 수 있어요" :
+                         "🙈 숨김 — 아무에게도 이전 대화가 보이지 않아요";
+    if (!confirm(`이 설정을 적용할까요?\n\n${modeTxt}\n표시 개수: ${n}개`)) return;
+
     await db.ref("chatMeta/showHistory").set({
-      mode: conf.mode || (conf.enabled === false ? "off" : "on"),
+      mode,
       count: n,
       updatedBy: myNick || "admin",
       at: Date.now()
     });
-    alert(`🔢 히스토리 표시 개수가 ${n}개로 설정됐어요.`);
+    alert("✅ 히스토리 설정이 적용됐어요.");
+  }
+
+  // ✅ 이전 채팅 불러오기: 누른 관리자 본인 화면에만 과거 대화를 표시
+  async function loadHistoryNow() {
+    if (!requireAdminPin()) return;
+    if (!myNick) { alert("먼저 작업실에 입장해 주세요!"); return; }
+    window._forceHistOnce = true;
+    try {
+      await window.listenMessages?.();
+      window.closeSettings?.();
+    } catch(e) {
+      window._forceHistOnce = false;
+      alert("이전 채팅을 불러오지 못했어요 😢");
+    }
   }
 
   // =====================================================
@@ -709,8 +711,8 @@
   window.stopPomodoro = stopPomodoro;
   window.requireAdminPin = requireAdminPin;
   window.clearAllChat = clearAllChat;
-  window.toggleChatHistoryVisible = toggleChatHistoryVisible;
-  window.setHistoryCount = setHistoryCount;
+  window.applyHistoryConfig = applyHistoryConfig;
+  window.loadHistoryNow = loadHistoryNow;
   window.recordAttendance = recordAttendance;
   window.showAttendanceLog = showAttendanceLog;
   window.updateChatHeader = updateChatHeader;
