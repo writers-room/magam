@@ -452,7 +452,7 @@
     }
     if (!joinTs) joinTs = Date.now() - 1200;
 
-    // ✅ [벨사탕] 입장 히스토리: mode(on/admin/off) + count(개수), 관리자가 설정
+    // ✅ 입장 히스토리: mode(on/admin/off) + count(개수), 관리자가 설정 (기본: 전체 공개 100개)
     let showHist = true;
     let histCount = 100;
     try {
@@ -464,9 +464,7 @@
       histCount = Math.max(10, Math.min(300, parseInt(conf.count ?? 100, 10) || 100));
     } catch(e) {}
 
-    // ✅ [벨사탕] 최근 100개는 새 입장자에게도 렌더 (OFF면 키만 등록해 중복 방지)
-    // [FIX] limitToLast는 키 순서라 sys_pomo_* 같은 이름 키가 몰려 나옴 → time 기준 정렬로 변경
-    // [FIX] 히스토리에는 실제 대화만 표시 (뽀모/입장/퇴장/이펙트 시스템 메시지는 제외)
+    // ✅ 시간순 최근 N개 로드, 실제 대화(일반/선언/운세)만 렌더 (시스템·이펙트 제외)
     const initSnap = await _msgRef.orderByChild("time").limitToLast(Math.max(histCount, 100)).once("value");
     const box = document.getElementById("chat-box");
     const histItems = [];
@@ -547,7 +545,7 @@
   function requireAdminPin() {
     if (sessionStorage.getItem("adminPinOk") === "true") return true;
     const p = prompt("관리자 PIN을 입력해 주세요");
-    if (p === "59595959") {
+    if (p === "2580") {
       sessionStorage.setItem("adminPinOk", "true");
       window.refreshAdminUiVisibility?.();
       return true;
@@ -604,7 +602,7 @@
   }
 
   // =====================================================
-  // ✅ [벨사탕] 접속 기록 (최근 7일 보관)
+  // ✅ 접속 기록 (최근 7일 보관, 첫 접속 시각 유지)
   // =====================================================
   async function recordAttendance() {
     if (!myNick) return;
@@ -618,7 +616,6 @@
         firstAt: prev?.firstAt || prev?.at || Date.now(),
         at: Date.now()
       });
-      // 7일 지난 기록 정리
       const snap = await db.ref("attendance").once("value");
       const cutoff = ymd(Date.now() - 6 * 86400000);
       const updates = {};

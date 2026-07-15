@@ -1104,7 +1104,7 @@
   function getCurrentFontSize() {
     const v = getComputedStyle(document.documentElement).getPropertyValue("--font-size").trim().replace("px","");
     const n = parseInt(v, 10);
-    return Number.isFinite(n) ? n : 18;
+    return Number.isFinite(n) ? n : 17;
   }
 
   function setFontSize(px) {

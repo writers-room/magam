@@ -3,7 +3,7 @@
     /* 공통 토큰(모드 상관없이 공통) */
     --anim: 220ms cubic-bezier(.2,.8,.2,1);
     --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Apple SD Gothic Neo", "Pretendard", sans-serif;
-    --font-size: 18px;
+    --font-size: 17px;
 
     --radius: 18px;
     --radius2: 14px;
