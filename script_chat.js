@@ -965,14 +965,43 @@
   // ✅ send
   // =====================================================
   async function checkAndTrimChat() {
-    const chatRef   = db.ref("messages");
-    const snapshot  = await chatRef.once("value");
-    if (snapshot.numChildren() > 200) {
-      const oldItems    = chatRef.orderByKey().limitToFirst(snapshot.numChildren() - 200);
-      const oldSnapshot = await oldItems.once("value");
+    // [FIX] 기존: 키 순서로 삭제 → push 키("-O...")가 sys_* 보다 앞이라
+    // 실제 대화만 먼저 지워지고 시스템 메시지는 무한히 쌓이는 버그가 있었음.
+    // 변경: (1) 오래된 시스템/이펙트 메시지부터 삭제 (2) 그래도 넘치면 시간순으로 삭제
+    try {
+      const chatRef  = db.ref("messages");
+      const snapshot = await chatRef.once("value");
+      const total = snapshot.numChildren();
+      if (total <= 250) return;
+
+      const items = [];
+      snapshot.forEach(child => {
+        const v = child.val() || {};
+        items.push({
+          key: child.key,
+          time: Number(v.time || 0),
+          sys: (v.type === "system" || v.type === "fx")
+        });
+      });
+      items.sort((a, b) => a.time - b.time); // 오래된 순
+
       const updates = {};
-      oldSnapshot.forEach(child => updates[child.key] = null);
-      await chatRef.update(updates);
+      let toDelete = total - 250;
+
+      // 1순위: 오래된 시스템/이펙트 메시지
+      for (const it of items) {
+        if (toDelete <= 0) break;
+        if (it.sys) { updates[it.key] = null; toDelete--; }
+      }
+      // 2순위: 그래도 넘치면 가장 오래된 메시지부터
+      for (const it of items) {
+        if (toDelete <= 0) break;
+        if (!(it.key in updates)) { updates[it.key] = null; toDelete--; }
+      }
+
+      if (Object.keys(updates).length) await chatRef.update(updates);
+    } catch(e) {
+      console.warn("[checkAndTrimChat failed]", e);
     }
   }
 

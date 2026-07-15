@@ -124,7 +124,8 @@
 
   async function _writeJoinSystemMessageOnce() {
     const sid = _ensureSessionId();
-    const key = `sys_join_${sid}`;
+    // [FIX] 같은 탭 재입장 시 키가 겹치지 않도록 입장 시각을 포함해 고유화
+    const key = `sys_join_${sid}_${_myJoinTs || Date.now()}`;
 
     const payload = {
       type: "system",
@@ -146,7 +147,7 @@
 
   async function _writeLeaveSystemMessageOnce() {
     const sid = _ensureSessionId();
-    const key = `sys_leave_${sid}`;
+    const key = `sys_leave_${sid}_${_myJoinTs || Date.now()}`;
 
     await db.ref(`messages/${key}`).set({
       type: "system",
@@ -321,7 +322,7 @@
 
     // ✅ sendBeacon: 페이지 언로드 중에도 전송 보장
     // Firebase REST API로 퇴장 메시지 기록
-    const url = `${firebaseConfig.databaseURL}/messages/sys_leave_${sid}.json?x-http-method-override=PUT`;
+    const url = `${firebaseConfig.databaseURL}/messages/sys_leave_${sid}_${_myJoinTs || Date.now()}.json?x-http-method-override=PUT`;
     const payload = JSON.stringify({
       type:    "system",
       msg:     `👋 ${myEmoji} ${myNick} 작가님이 작업실을 나갔어요.`,

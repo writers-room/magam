@@ -484,9 +484,13 @@
       if (isRealChat) histItems.push([key, data]);
     });
     if (showHist) {
-      histItems.slice(-histCount).forEach(([key, data]) => {
+      const toRender = histItems.slice(-histCount);
+      window._lastHistRenderedCount = toRender.length;
+      toRender.forEach(([key, data]) => {
         window.renderChatMessage?.(box, data, key);
       });
+    } else {
+      window._lastHistRenderedCount = 0;
     }
 
     // ✅ 관리자 토글 버튼 라벨 실시간 동기화
@@ -602,6 +606,10 @@
     try {
       await window.listenMessages?.();
       window.closeSettings?.();
+      const n = window._lastHistRenderedCount || 0;
+      if (n === 0) {
+        alert("불러올 이전 대화가 아직 없어요.\n(뽀모도로·입장 알림 같은 시스템 메시지는 히스토리에 포함되지 않아요)");
+      }
     } catch(e) {
       window._forceHistOnce = false;
       alert("이전 채팅을 불러오지 못했어요 😢");
