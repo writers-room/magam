@@ -548,6 +548,11 @@
     if (p === "2580") {
       sessionStorage.setItem("adminPinOk", "true");
       window.refreshAdminUiVisibility?.();
+
+      // ✅ 관리자 인증 즉시 채팅을 다시 불러와서,
+      // "관리자만" 모드의 과거 히스토리가 로그인하는 순간 바로 보이게 함
+      try { if (myNick) window.listenMessages?.(); } catch(e) {}
+
       return true;
     }
     alert("PIN이 올바르지 않습니다.");
