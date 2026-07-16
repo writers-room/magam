@@ -169,14 +169,16 @@
   }
 
   .common-area{
-    height:58%;
+    flex: 1 1 58%;
     display:flex;
     flex-direction:column;
-    min-height: 0;
+    /* ✅ 화면이 낮아도 카드 영역이 짜부라지지 않게 최소 높이 보장 */
+    min-height: 240px;
   }
 
   .personal-area{
-    height:42%;
+    flex: 1 1 42%;
+    min-height: 150px;
     position:relative;
     padding: 16px;
     overflow:auto;
@@ -596,6 +598,7 @@
     padding: 10px;
     overflow-y:auto;
     scrollbar-width: thin;
+    min-height: 120px; /* ✅ 항상 스크롤 가능한 최소 공간 확보 */
     min-height: 0;
     align-content: start;
   }
@@ -1827,3 +1830,21 @@ body.pomo-nonpart .pomo-status-line{
 
 /* ✅ 채팅 닉네임 뒤 업적 배지 */
 .user-name .name-badges{ margin-left: 3px; letter-spacing: 1px; }
+
+
+/* ✅ 업적 배너 묶음 (여러 개면 연달아 표시) */
+.ach-banners{
+  display:flex;
+  flex-wrap:wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+.ach-banners .streak-banner{ margin-top: 0; }
+
+/* ✅ 지난주 매일 출석 배너 — 금빛 테두리와 어울리는 골드 톤 */
+.weekly-banner{
+  color: #7A5A00 !important;
+  background: linear-gradient(135deg, rgba(255,215,64,.30), rgba(255,236,150,.18)) !important;
+  border: 1px solid rgba(231,177,10,.55) !important;
+  text-shadow: 0 1px 0 rgba(255,255,255,.35);
+}

@@ -160,6 +160,12 @@
           const streakBanner = streakN >= 3
             ? `<div class="streak-banner">🔥 연속 ${streakN}일 출석!</div>`
             : "";
+          const weeklyBanner = effAch.weeklyFull
+            ? `<div class="streak-banner weekly-banner">👑 지난주 매일 출석!</div>`
+            : "";
+          const banners = (streakBanner || weeklyBanner)
+            ? `<div class="ach-banners">${streakBanner}${weeklyBanner}</div>`
+            : "";
           const goldCls = effAch.weeklyFull ? " weekly-gold" : "";
           const nameBadges =
             (streakN >= 3 ? "🔥" : "") + (effAch.weeklyFull ? "👑" : "");
@@ -178,7 +184,7 @@
               <div class="card-goal">
                 <div class="goal-line">🎯 ${goalText}</div>
               </div>
-              ${streakBanner}
+              ${banners}
             </div>
           `);
         }
