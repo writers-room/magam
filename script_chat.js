@@ -377,6 +377,9 @@
   }
 
   function runEffect(emojis, colors, count) {
+    // ✅ [FIX] 백그라운드 탭에서는 이펙트를 재생하지 않음
+    // (rAF가 얼려서 복귀 시 뒤늦게 재생되는 잔상 방지)
+    if (document.visibilityState === "hidden") return;
     _effectParticles = [];
     if (_effectRafId) { cancelAnimationFrame(_effectRafId); _effectRafId = null; }
     _spawnParticles(emojis, colors, count);
@@ -401,6 +404,9 @@
   }
 
   function showShoutOverlay(nick, text, durationMs = 3000) {
+    // ✅ [FIX] 백그라운드 탭에서는 표시하지 않음 — 타이머가 얼려서
+    // 복귀 후에도 오버레이가 남아 있는 버그 방지 (내용은 채팅 카드로 남음)
+    if (document.visibilityState === "hidden") return;
     let overlay = document.getElementById("shout-overlay");
     if (!overlay) {
       overlay = document.createElement("div");
@@ -434,6 +440,11 @@
   //   이미 지났으면 즉시 숨기고, 아직 남았으면 남은 시간만큼만 다시 예약한다.
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible") return;
+
+    // ✅ [FIX] 복귀 시 잔여 토스트도 함께 정리
+    const toast = document.getElementById("command-toast");
+    if (toast) { toast.style.opacity = "0"; }
+
     if (!_shoutExpiresAt) return;
 
     const remain = _shoutExpiresAt - Date.now();
@@ -504,6 +515,8 @@
   let _cmdToastTimer = null;
 
   function showCommandToast(text) {
+    // ✅ [FIX] 백그라운드 탭에서는 표시하지 않음 (복귀 시 잔상 방지)
+    if (document.visibilityState === "hidden") return;
     let toast = document.getElementById("command-toast");
     if (!toast) {
       toast = document.createElement("div");

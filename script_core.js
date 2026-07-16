@@ -273,7 +273,10 @@
       // ✅ 실제 브라우저 종료/탭 닫기 시에만 퇴장 메시지
       // (beforeunload는 실제 닫힐 때만 발동, 네트워크 끊김엔 발동 안 함)
       window._beforeUnloadBound = true;
+      _leaveBeaconSent = false;
       window.addEventListener("beforeunload", _handleBeforeUnload, { once: true });
+      // ✅ 모바일 사파리 등에서는 beforeunload가 안 뜨는 경우가 있어 pagehide도 함께 사용
+      window.addEventListener("pagehide", _handleBeforeUnload, { once: true });
       await _writeJoinSystemMessageOnce();
 
       callIfFn("recordAttendance");
@@ -307,6 +310,7 @@
     window.resetPomoUserScopedUI?.();
     // ✅ 수동 퇴장 시 beforeunload 리스너 제거 (중복 방지)
     window.removeEventListener("beforeunload", _handleBeforeUnload);
+    window.removeEventListener("pagehide", _handleBeforeUnload);
     detachListeners();
 
     myNick = "";
@@ -323,13 +327,14 @@
   }
 
 
+  let _leaveBeaconSent = false;
+
   function _handleBeforeUnload() {
-    if (!myNick) return;
+    if (!myNick || _leaveBeaconSent) return;
+    _leaveBeaconSent = true;
 
     const sid = _ensureSessionId();
 
-    // ✅ sendBeacon: 페이지 언로드 중에도 전송 보장
-    // Firebase REST API로 퇴장 메시지 기록
     const url = `${firebaseConfig.databaseURL}/messages/sys_leave_${sid}_${_myJoinTs || Date.now()}.json?x-http-method-override=PUT`;
     const payload = JSON.stringify({
       type:    "system",
@@ -340,20 +345,48 @@
       byUnload: true
     });
 
+    // ✅ [FIX] sendBeacon은 크로스오리진으로 application/json 전송이 차단됨 →
+    // 허용되는 text/plain으로 전송 (Firebase REST는 형식 무관하게 본문을 해석함)
+    let ok = false;
     try {
-      navigator.sendBeacon(url, new Blob([payload], { type: "application/json" }));
+      ok = navigator.sendBeacon(url, new Blob([payload], { type: "text/plain" }));
     } catch(e) {}
+    if (!ok) {
+      // 예비 수단: keepalive fetch (언로드 후에도 요청 유지)
+      try { fetch(url, { method: "POST", body: payload, keepalive: true }); } catch(e) {}
+    }
 
     // status 즉시 제거도 시도 (best-effort)
     try {
-      navigator.sendBeacon(
-        `${firebaseConfig.databaseURL}/status/${myNick}.json?x-http-method-override=DELETE`,
-        new Blob(["null"], { type: "application/json" })
-      );
+      const stUrl = `${firebaseConfig.databaseURL}/status/${encodeURIComponent(myNick)}.json?x-http-method-override=DELETE`;
+      let ok2 = false;
+      try { ok2 = navigator.sendBeacon(stUrl, new Blob(["null"], { type: "text/plain" })); } catch(e) {}
+      if (!ok2) fetch(stUrl, { method: "POST", body: "null", keepalive: true });
     } catch(e) {}
   }
 
   window._handleBeforeUnload = _handleBeforeUnload;
+
+  // ✅ [FIX] bfcache 복귀 대응: 다른 사이트로 갔다가 '뒤로가기'로 돌아오면
+  // 페이지가 얼려진 상태 그대로 살아나는데, 떠나는 순간 퇴장 메시지가 이미 전송됨.
+  // → 복귀를 감지해서 상태를 복구하고 재입장 메시지를 남겨 모순을 해소한다.
+  window.addEventListener("pageshow", (e) => {
+    if (!e.persisted) return;   // bfcache 복귀가 아니면 무시
+    if (!myNick) return;        // 입장 전이면 무시
+
+    _leaveBeaconSent = false;
+    _myJoinTs = Date.now();
+    _presenceDisconnectArmed = false;
+
+    try {
+      window.addEventListener("beforeunload", _handleBeforeUnload, { once: true });
+      window.addEventListener("pagehide", _handleBeforeUnload, { once: true });
+    } catch(err) {}
+
+    try { armPresenceOnDisconnect(); } catch(err) {}
+    try { callIfFn("updateStatus", true); } catch(err) {}
+    try { _writeJoinSystemMessageOnce(); } catch(err) {}
+  });
 
   function init() {
     window.resetPomoUserScopedUI?.();
