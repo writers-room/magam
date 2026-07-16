@@ -728,7 +728,7 @@
            data-raw-msg="${escapeHtml(rawMsg)}">
         ${isMe ? "" : `<div class="profile-emoji">${escapeHtml(data.emoji || "✍️")}</div>`}
         <div class="msg-content">
-          ${isMe || grouped ? "" : `<div class="user-name">${escapeHtml(data.user)}</div>`}
+          ${isMe || grouped ? "" : `<div class="user-name">${escapeHtml(data.user)}${data.badge ? `<span class="name-badges">${escapeHtml(String(data.badge))}</span>` : ""}</div>`}
           ${replyHtml}
           <div class="bubble-row ${isMe ? "me" : ""}">
             <div class="${bubbleClass}" style="${bubbleStyle}">${msgHtml}</div>
@@ -1108,6 +1108,9 @@
     // 일반 메시지
     try {
       const payload = { user: myNick, emoji: myEmoji, msg: m, time: Date.now() };
+
+      // ✅ 업적 배지 (연속 출석 🔥 / 지난주 풀출석 👑 — 중복 가능)
+      if (window._myBadgeStr) payload.badge = window._myBadgeStr;
 
       // ✅ 답장 중이었다면 원문 정보(짧은 발췌)를 함께 저장
       if (_replyTarget) {

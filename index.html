@@ -205,6 +205,30 @@
                 <div class="hint">날짜별 접속 필명과 첫 접속 시각을 확인할 수 있어요. 7일이 지나면 자동 삭제돼요.</div>
               </div>
 
+              <!-- 업적 테스트 모드 -->
+              <div>
+                <div class="set-title">🧪 업적 테스트 모드</div>
+                <input id="ach-test-nick" type="text" placeholder="대상 필명" style="width:100%;">
+                <div style="height:8px;"></div>
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-weight:900;font-size:13px;">
+                  <span>연속</span>
+                  <input id="ach-test-streak" type="number" min="0" max="999" value="3"
+                    style="width:70px;text-align:center;padding:6px 8px;">
+                  <span>일</span>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input id="ach-test-weekly" type="checkbox"> 👑 지난주 풀출석
+                  </label>
+                </div>
+                <div style="height:8px;"></div>
+                <div style="display:flex;gap:8px;">
+                  <button class="ghost-btn primary" type="button" style="flex:1;"
+                    onclick="applyAchievementOverride()">🧪 적용</button>
+                  <button class="ghost-btn danger" type="button" style="flex:1;"
+                    onclick="clearAchievementOverride()">해제</button>
+                </div>
+                <div class="hint">해당 필명이 모든 화면에서 업적 달성 상태로 보여요. 실제 출석 데이터는 바뀌지 않고, 24시간 후 자동 만료돼요. 필명을 비우고 해제하면 전체 해제.</div>
+              </div>
+
               <!-- 채팅 전체 삭제 -->
               <div>
                 <button id="admin-clear-btn" class="ghost-btn danger" type="button" style="width:100%;">🧹 채팅 전체 삭제</button>
@@ -328,17 +352,6 @@
                 placeholder="예: 15화 씬 전개 끝내기"
               >
             </label>
-            <label class="field-label">
-              <span class="field-title">오늘 누적(선택)</span>
-              <input
-                type="number"
-                id="db-today-done"
-                oninput="savePersonalDataDebounced(); updatePersonalProgressUI()"
-                style="width:100%;"
-                placeholder="예: 800"
-              >
-            </label>
-            <div class="mini-hint" id="today-progress-text">오늘 누적: 0자</div>
             <label class="field-label">
               <span class="field-title">내 스테이터스(공유됨)</span>
               <select id="db-status" oninput="savePersonalDataDebounced(); window.renderQuickStatusBtn?.()" style="width:100%;">

@@ -96,9 +96,41 @@
   }
 
   // =====================================================
+  // ✅ 업적 오버라이드(테스트 모드): 실제 업적과 병합
+  // =====================================================
+  function _effectiveAch(nick, base) {
+    const ov = (window._achOverrides || {})[nick];
+    const bStreak = Number(base.streak ?? base.streakDays ?? 0);
+    const bWeekly = !!base.weeklyFull;
+    if (ov && Number(ov.expiresAt || 0) > Date.now()) {
+      return {
+        streak: Math.max(bStreak, Number(ov.streakDays || 0)),
+        weeklyFull: bWeekly || !!ov.weeklyFull
+      };
+    }
+    return { streak: bStreak, weeklyFull: bWeekly };
+  }
+
+  // =====================================================
   // status realtime
   // =====================================================
   function listenStatus() {
+    // 테스트 오버라이드 실시간 반영
+    if (!window._achOvRef) {
+      window._achOvRef = db.ref("achievementOverrides");
+      window._achOvRef.on("value", s => {
+        window._achOverrides = s.val() || {};
+        // 내 채팅 배지 문자열도 갱신
+        try {
+          if (myNick) {
+            const eff = _effectiveAch(myNick, window._myAch || {});
+            window._myBadgeStr =
+              (eff.streak >= 3 ? "🔥" : "") + (eff.weeklyFull ? "👑" : "");
+          }
+        } catch(e) {}
+      });
+    }
+
     _statusRef = db.ref("status");
     _statusRef.on("value", snap => {
       const list = document.getElementById("user-cards");
@@ -121,16 +153,23 @@
           const badge = st === "writing" ? `<span class="rec-dot"></span>` : "";
 
           const goalText = row.todayGoalText ? escapeHtml(row.todayGoalText) : "오늘의 한줄 목표 없음";
-          const doneText = (row.todayDone !== undefined && row.todayDone !== null && String(row.todayDone).trim() !== "")
-            ? escapeHtml(String(row.todayDone))
-            : "-";
+
+          // ✅ 업적 표시 (테스트 오버라이드 병합)
+          const effAch = _effectiveAch(u, row);
+          const streakN = effAch.streak;
+          const streakBanner = streakN >= 3
+            ? `<div class="streak-banner">🔥 연속 ${streakN}일 출석!</div>`
+            : "";
+          const goldCls = effAch.weeklyFull ? " weekly-gold" : "";
+          const nameBadges =
+            (streakN >= 3 ? "🔥" : "") + (effAch.weeklyFull ? "👑" : "");
 
           list.insertAdjacentHTML("beforeend", `
-            <div class="user-card ${cls}">
+            <div class="user-card ${cls}${goldCls}">
               <div class="card-top">
                 <div class="card-left">
                   <div class="card-emoji">${row.emoji || ""}</div>
-                  <div class="card-name">${escapeHtml(u)}</div>
+                  <div class="card-name">${escapeHtml(u)}${nameBadges ? " " + nameBadges : ""}</div>
                 </div>
                 ${badge}
               </div>
@@ -138,8 +177,8 @@
 
               <div class="card-goal">
                 <div class="goal-line">🎯 ${goalText}</div>
-                <div class="done-line">오늘 ${doneText}자</div>
               </div>
+              ${streakBanner}
             </div>
           `);
         }
@@ -187,6 +226,8 @@
       statusLabel: statusLabel(statusChoice),
       todayGoalText: goalText,
       todayDone: done,
+      streakDays: Number(window._myAch?.streak || 0),
+      weeklyFull: !!window._myAch?.weeklyFull,
       lastSeen: Date.now()
     });
   }
@@ -636,6 +677,47 @@
       const updates = {};
       snap.forEach(c => { if (c.key && c.key < cutoff) updates[c.key] = null; });
       if (Object.keys(updates).length) await db.ref("attendance").update(updates);
+
+      // =====================================================
+      // ✅ 업적 계산 (개인별 출석 데이터: users/{nick}/attend)
+      // =====================================================
+      const uref = db.ref(`users/${myNick}/attend`);
+
+      // 날짜 맵 기록 (지난주 풀출석 판정용, 14일 보관)
+      await uref.child(`days/${day}`).set(true);
+      const dsnap = await uref.child("days").once("value");
+      const dcut = ymd(Date.now() - 13 * 86400000);
+      const dupd = {};
+      dsnap.forEach(c => { if (c.key && c.key < dcut) dupd[c.key] = null; });
+      if (Object.keys(dupd).length) await uref.child("days").update(dupd);
+
+      // 연속 출석 카운터 (무제한, 끊기면 1부터 재시작)
+      const yesterday = ymd(Date.now() - 86400000);
+      const ssnap = await uref.child("streak").once("value");
+      const st = ssnap.val() || {};
+      let streak;
+      if (st.lastDay === day) streak = Number(st.count || 1);
+      else if (st.lastDay === yesterday) streak = Number(st.count || 0) + 1;
+      else streak = 1;
+      await uref.child("streak").set({ count: streak, lastDay: day });
+
+      // 지난주(월~일) 풀출석 판정
+      const daysObj = (await uref.child("days").once("value")).val() || {};
+      const now = new Date();
+      const dow = (now.getDay() + 6) % 7; // 0=월
+      const thisMon = new Date(now); thisMon.setDate(now.getDate() - dow);
+      let weeklyFull = true;
+      for (let i = 7; i >= 1; i--) {
+        const dd = new Date(thisMon); dd.setDate(thisMon.getDate() - i);
+        if (!daysObj[ymd(dd.getTime())]) { weeklyFull = false; break; }
+      }
+
+      // 전역 캐시 + 배지 문자열 (중복 획득 가능: 이모지 중첩)
+      window._myAch = { streak, weeklyFull };
+      window._myBadgeStr = (streak >= 3 ? "🔥" : "") + (weeklyFull ? "👑" : "");
+
+      // 상태 카드에 즉시 반영
+      try { updateStatus(true); } catch(e) {}
     } catch(e) { console.warn("[recordAttendance failed]", e); }
   }
 
@@ -699,6 +781,39 @@
     }
   }
 
+  // =====================================================
+  // ✅ 업적 테스트 모드 (관리자)
+  // =====================================================
+  async function applyAchievementOverride() {
+    if (!requireAdminPin()) return;
+    const nick = document.getElementById("ach-test-nick")?.value?.trim();
+    if (!nick) { alert("필명을 입력해 주세요!"); return; }
+    const streak = Math.max(0, parseInt(document.getElementById("ach-test-streak")?.value, 10) || 0);
+    const weekly = !!document.getElementById("ach-test-weekly")?.checked;
+
+    await db.ref(`achievementOverrides/${nick}`).set({
+      streakDays: streak,
+      weeklyFull: weekly,
+      expiresAt: Date.now() + 24 * 3600 * 1000,
+      by: myNick || "admin",
+      at: Date.now()
+    });
+    alert(`🧪 ${nick} 님에게 테스트 업적을 적용했어요.\n연속 ${streak}일 / 지난주 풀출석 ${weekly ? "O" : "X"}\n(24시간 후 자동 만료 · 카드는 최대 15초 안에 갱신돼요)`);
+  }
+
+  async function clearAchievementOverride() {
+    if (!requireAdminPin()) return;
+    const nick = document.getElementById("ach-test-nick")?.value?.trim();
+    if (nick) {
+      await db.ref(`achievementOverrides/${nick}`).remove();
+      alert(`🧪 ${nick} 님의 테스트 업적을 해제했어요.`);
+    } else {
+      if (!confirm("필명이 비어 있어요. 모든 테스트 업적을 해제할까요?")) return;
+      await db.ref("achievementOverrides").remove();
+      alert("🧪 모든 테스트 업적을 해제했어요.");
+    }
+  }
+
   async function clearAllChat() {
     if (!requireAdminPin()) return;
     if (!confirm("정말 채팅을 모두 삭제할까요? (되돌릴 수 없어요!)")) return;
@@ -723,4 +838,6 @@
   window.loadHistoryNow = loadHistoryNow;
   window.recordAttendance = recordAttendance;
   window.showAttendanceLog = showAttendanceLog;
+  window.applyAchievementOverride = applyAchievementOverride;
+  window.clearAchievementOverride = clearAchievementOverride;
   window.updateChatHeader = updateChatHeader;
