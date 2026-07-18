@@ -691,6 +691,17 @@
 
       // 날짜 맵 기록 (지난주 풀출석 판정용, 14일 보관)
       await uref.child(`days/${day}`).set(true);
+
+      // ✅ [FIX] 업적 기능 배포 이전의 출석(공용 attendance, 최근 7일)을
+      // 개인 출석 맵에 백필 → 배포 첫날부터 기존 연속 출석이 즉시 인정됨
+      try {
+        const attAll = snap.val() || {};
+        const backfill = {};
+        Object.keys(attAll).forEach(dk => {
+          if (attAll[dk] && attAll[dk][myNick]) backfill[dk] = true;
+        });
+        if (Object.keys(backfill).length) await uref.child("days").update(backfill);
+      } catch(e) {}
       const dsnap = await uref.child("days").once("value");
       const dcut = ymd(Date.now() - 13 * 86400000);
       const dupd = {};
@@ -705,6 +716,19 @@
       if (st.lastDay === day) streak = Number(st.count || 1);
       else if (st.lastDay === yesterday) streak = Number(st.count || 0) + 1;
       else streak = 1;
+
+      // ✅ [FIX] 날짜 맵(백필 포함) 기준 연속일수도 계산해 더 큰 값을 채택
+      try {
+        const dmSnap = await uref.child("days").once("value");
+        const dm = dmSnap.val() || {};
+        let mapStreak = 0;
+        for (let i = 0; i < 60; i++) {
+          if (dm[ymd(Date.now() - i * 86400000)]) mapStreak++;
+          else break;
+        }
+        if (mapStreak > streak) streak = mapStreak;
+      } catch(e) {}
+
       await uref.child("streak").set({ count: streak, lastDay: day });
 
       // 지난주(월~일) 풀출석 판정
