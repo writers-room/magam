@@ -774,10 +774,14 @@
           const items = nicks.map(n => {
             const r = rows[n] || {};
             const first = r.firstAt || r.at;
+            const correctedTag = r.correctedBy
+              ? `<span style="flex:0 0 auto;font-size:10px;font-weight:900;color:var(--sub-muted);border:1px solid var(--border);border-radius:6px;padding:1px 5px;">🛠보정</span>`
+              : "";
             return `
               <div style="display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px dashed var(--border);">
                 <span style="font-size:17px;flex:0 0 auto;">${r.emoji || "✍️"}</span>
                 <span style="flex:1;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(n)}</span>
+                ${correctedTag}
                 <span style="flex:0 0 auto;font-size:12px;font-weight:800;color:var(--sub-muted);">첫 접속 ${first ? formatHHMM(first) : "-"}</span>
               </div>`;
           }).join("");
@@ -877,6 +881,25 @@
     }
     await db.ref(`users/${nick}/attend/days`).update(fill);
 
+    // 2-0.5) 관리자용 "접속 기록" 로그(공개 attendance)에도 같은 기간 소급 반영
+    // → 접속한 작가님 보기 모달에서도 해당 날짜에 출석한 것으로 보여요.
+    try {
+      const emoSnap = await db.ref(`status/${nick}/emoji`).once("value");
+      const emoji = emoSnap.val() || "✍️";
+      const attUpdates = {};
+      for (let i = 0; i < Math.min(n, 999); i++) {
+        const day = ymd(Date.now() - i * 86400000);
+        const ts = Date.now() - i * 86400000;
+        attUpdates[`${day}/${nick}`] = {
+          emoji,
+          firstAt: ts,
+          at: ts,
+          correctedBy: myNick || "admin"
+        };
+      }
+      await db.ref("attendance").update(attUpdates);
+    } catch(e) {}
+
     // 2-1) 보정된 날짜 맵을 기준으로 지난주(월~일) 풀출석 여부를 재계산 → 👑 배지 소급 반영
     const forceWeekly = !!document.getElementById("streak-fix-force-weekly")?.checked;
     let weeklyFull = forceWeekly;
@@ -901,7 +924,7 @@
       await db.ref(`status/${nick}/weeklyFull`).set(weeklyFull);
     } catch(e) {}
 
-    alert(`✅ ${nick} 님의 연속 출석을 ${n}일로 보정했어요.${weeklyFull ? "\n👑 지난주 풀출석 배지도 함께 소급 적용됐어요." : "\n(지난주 풀출석 조건은 충족하지 않아 👑 배지는 부여되지 않았어요)"}\n완전한 반영을 위해 해당 작가님이 한 번 재입장해 주시면 좋아요.`);
+    alert(`✅ ${nick} 님의 연속 출석을 ${n}일로 보정했어요.\n📋 접속 기록에도 지난 ${n}일치가 함께 표시돼요.${weeklyFull ? "\n👑 지난주 풀출석 배지도 함께 소급 적용됐어요." : "\n(지난주 풀출석 조건은 충족하지 않아 👑 배지는 부여되지 않았어요)"}\n완전한 반영을 위해 해당 작가님이 한 번 재입장해 주시면 좋아요.`);
   }
 
   async function clearAllChat() {
