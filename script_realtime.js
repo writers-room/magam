@@ -844,6 +844,44 @@
     }
   }
 
+  // =====================================================
+  // ✅ 연속 출석 수동 보정 (관리자)
+  // — 7일 보관 한계로 소급이 안 된 실제 연속일수를 직접 설정
+  // =====================================================
+  async function correctStreak() {
+    if (!requireAdminPin()) return;
+    const nick = document.getElementById("streak-fix-nick")?.value?.trim();
+    if (!nick) { alert("필명을 입력해 주세요!"); return; }
+    const n = parseInt(document.getElementById("streak-fix-days")?.value, 10);
+    if (!Number.isFinite(n) || n < 1 || n > 999) {
+      alert("1에서 999 사이의 숫자를 입력해 주세요!");
+      return;
+    }
+    if (!confirm(`${nick} 님의 연속 출석을 ${n}일로 보정할까요?`)) return;
+
+    const today = ymd(Date.now());
+
+    // 1) 연속 출석 카운터를 보정값으로 설정 (내일부터 n+1로 이어짐)
+    await db.ref(`users/${nick}/attend/streak`).set({
+      count: n,
+      lastDay: today,
+      correctedBy: myNick || "admin",
+      at: Date.now()
+    });
+
+    // 2) 출석 날짜 맵도 과거로 채워서(최대 14일) 계산 일관성 유지
+    const fill = {};
+    for (let i = 0; i < Math.min(n, 14); i++) {
+      fill[ymd(Date.now() - i * 86400000)] = true;
+    }
+    await db.ref(`users/${nick}/attend/days`).update(fill);
+
+    // 3) 현재 카드에도 즉시 반영 시도 (본인 클라이언트가 재입장하면 완전히 동기화됨)
+    try { await db.ref(`status/${nick}/streakDays`).set(n); } catch(e) {}
+
+    alert(`✅ ${nick} 님의 연속 출석을 ${n}일로 보정했어요.\n완전한 반영을 위해 해당 작가님이 한 번 재입장해 주시면 좋아요.`);
+  }
+
   async function clearAllChat() {
     if (!requireAdminPin()) return;
     if (!confirm("정말 채팅을 모두 삭제할까요? (되돌릴 수 없어요!)")) return;
@@ -870,4 +908,5 @@
   window.showAttendanceLog = showAttendanceLog;
   window.applyAchievementOverride = applyAchievementOverride;
   window.clearAchievementOverride = clearAchievementOverride;
+  window.correctStreak = correctStreak;
   window.updateChatHeader = updateChatHeader;
