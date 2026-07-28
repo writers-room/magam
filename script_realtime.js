@@ -664,7 +664,7 @@
   }
 
   // =====================================================
-  // ✅ 접속 기록 (최근 7일 보관, 첫 접속 시각 유지)
+  // ✅ 접속 기록 (최근 1000일 보관, 첫 접속 시각 유지)
   // =====================================================
   async function recordAttendance() {
     if (!myNick) return;
@@ -679,7 +679,7 @@
         at: Date.now()
       });
       const snap = await db.ref("attendance").once("value");
-      const cutoff = ymd(Date.now() - 6 * 86400000);
+      const cutoff = ymd(Date.now() - 999 * 86400000);
       const updates = {};
       snap.forEach(c => { if (c.key && c.key < cutoff) updates[c.key] = null; });
       if (Object.keys(updates).length) await db.ref("attendance").update(updates);
@@ -689,10 +689,10 @@
       // =====================================================
       const uref = db.ref(`users/${myNick}/attend`);
 
-      // 날짜 맵 기록 (지난주 풀출석 판정용, 14일 보관)
+      // 날짜 맵 기록 (지난주 풀출석 판정용, 1000일 보관)
       await uref.child(`days/${day}`).set(true);
 
-      // ✅ [FIX] 업적 기능 배포 이전의 출석(공용 attendance, 최근 7일)을
+      // ✅ [FIX] 업적 기능 배포 이전의 출석(공용 attendance, 최근 1000일)을
       // 개인 출석 맵에 백필 → 배포 첫날부터 기존 연속 출석이 즉시 인정됨
       try {
         const attAll = snap.val() || {};
@@ -703,7 +703,7 @@
         if (Object.keys(backfill).length) await uref.child("days").update(backfill);
       } catch(e) {}
       const dsnap = await uref.child("days").once("value");
-      const dcut = ymd(Date.now() - 13 * 86400000);
+      const dcut = ymd(Date.now() - 999 * 86400000);
       const dupd = {};
       dsnap.forEach(c => { if (c.key && c.key < dcut) dupd[c.key] = null; });
       if (Object.keys(dupd).length) await uref.child("days").update(dupd);
@@ -722,7 +722,7 @@
         const dmSnap = await uref.child("days").once("value");
         const dm = dmSnap.val() || {};
         let mapStreak = 0;
-        for (let i = 0; i < 60; i++) {
+        for (let i = 0; i < 1000; i++) {
           if (dm[ymd(Date.now() - i * 86400000)]) mapStreak++;
           else break;
         }
@@ -760,7 +760,8 @@
     try {
       const snap = await db.ref("attendance").once("value");
       const v = snap.val() || {};
-      const days = Object.keys(v).sort().reverse();
+      // 데이터는 1000일치가 다 보관되지만, 모달에는 최근 30일만 펼쳐 보여줘요(가독성/성능).
+      const days = Object.keys(v).sort().reverse().slice(0, 30);
 
       let body;
       if (!days.length) {
@@ -798,7 +799,7 @@
       overlay.innerHTML = `
         <div class="modal-content" style="max-height:calc(100vh - 60px);display:flex;flex-direction:column;width:min(440px, calc(100vw - 32px));">
           <div class="modal-title">📋 접속 기록</div>
-          <div class="modal-sub">최근 7일 · 날짜별 접속한 작가님과 첫 접속 시각이에요.</div>
+          <div class="modal-sub">최근 30일 표시 (기록은 1000일 보관) · 날짜별 접속한 작가님과 첫 접속 시각이에요.</div>
           <div style="flex:1;overflow:auto;min-height:0;">${body}</div>
           <div style="height:10px;"></div>
           <button class="ghost-btn" style="width:100%;" onclick="document.getElementById('attendance-modal').remove()">닫기</button>
@@ -846,7 +847,7 @@
 
   // =====================================================
   // ✅ 연속 출석 수동 보정 (관리자)
-  // — 7일 보관 한계로 소급이 안 된 실제 연속일수를 직접 설정
+  // — 보관 기간 확대 이전에 소급이 안 됐던 실제 연속일수를 직접 설정
   // =====================================================
   async function correctStreak() {
     if (!requireAdminPin()) return;
@@ -869,17 +870,38 @@
       at: Date.now()
     });
 
-    // 2) 출석 날짜 맵도 과거로 채워서(최대 14일) 계산 일관성 유지
+    // 2) 출석 날짜 맵도 과거로 채워서(최대 999일) 계산 일관성 유지
     const fill = {};
-    for (let i = 0; i < Math.min(n, 14); i++) {
+    for (let i = 0; i < Math.min(n, 999); i++) {
       fill[ymd(Date.now() - i * 86400000)] = true;
     }
     await db.ref(`users/${nick}/attend/days`).update(fill);
 
-    // 3) 현재 카드에도 즉시 반영 시도 (본인 클라이언트가 재입장하면 완전히 동기화됨)
-    try { await db.ref(`status/${nick}/streakDays`).set(n); } catch(e) {}
+    // 2-1) 보정된 날짜 맵을 기준으로 지난주(월~일) 풀출석 여부를 재계산 → 👑 배지 소급 반영
+    const forceWeekly = !!document.getElementById("streak-fix-force-weekly")?.checked;
+    let weeklyFull = forceWeekly;
+    if (!forceWeekly) {
+      try {
+        const daysSnap = await db.ref(`users/${nick}/attend/days`).once("value");
+        const daysObj = daysSnap.val() || {};
+        const now = new Date();
+        const dow = (now.getDay() + 6) % 7; // 0=월
+        const thisMon = new Date(now); thisMon.setDate(now.getDate() - dow);
+        weeklyFull = true;
+        for (let i = 7; i >= 1; i--) {
+          const dd = new Date(thisMon); dd.setDate(thisMon.getDate() - i);
+          if (!daysObj[ymd(dd.getTime())]) { weeklyFull = false; break; }
+        }
+      } catch(e) { weeklyFull = false; }
+    }
 
-    alert(`✅ ${nick} 님의 연속 출석을 ${n}일로 보정했어요.\n완전한 반영을 위해 해당 작가님이 한 번 재입장해 주시면 좋아요.`);
+    // 3) 현재 카드에도 즉시 반영 시도 (본인 클라이언트가 재입장하면 완전히 동기화됨)
+    try {
+      await db.ref(`status/${nick}/streakDays`).set(n);
+      await db.ref(`status/${nick}/weeklyFull`).set(weeklyFull);
+    } catch(e) {}
+
+    alert(`✅ ${nick} 님의 연속 출석을 ${n}일로 보정했어요.${weeklyFull ? "\n👑 지난주 풀출석 배지도 함께 소급 적용됐어요." : "\n(지난주 풀출석 조건은 충족하지 않아 👑 배지는 부여되지 않았어요)"}\n완전한 반영을 위해 해당 작가님이 한 번 재입장해 주시면 좋아요.`);
   }
 
   async function clearAllChat() {

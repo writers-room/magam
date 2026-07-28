@@ -199,10 +199,10 @@
 
               <!-- 접속 기록 -->
               <div>
-                <div class="set-title">📋 접속 기록 (최근 7일)</div>
+                <div class="set-title">📋 접속 기록</div>
                 <button class="ghost-btn" type="button" style="width:100%;"
                   onclick="showAttendanceLog()">📋 접속한 작가님 보기</button>
-                <div class="hint">날짜별 접속 필명과 첫 접속 시각을 확인할 수 있어요. 7일이 지나면 자동 삭제돼요.</div>
+                <div class="hint">날짜별 접속 필명과 첫 접속 시각을 확인할 수 있어요. 기록은 1000일간 보관되며(창에는 최근 30일만 표시), 그 이후 자동 삭제돼요.</div>
               </div>
 
               <!-- 업적 테스트 모드 -->
@@ -242,7 +242,12 @@
                   <button class="ghost-btn primary" type="button" style="flex:1;"
                     onclick="correctStreak()">✅ 보정 적용</button>
                 </div>
-                <div class="hint">출석 기록이 7일만 보관되어 소급이 안 된 경우, 실제 연속일수를 직접 설정해요. 이후부터는 매일 자동으로 이어서 카운트돼요.</div>
+                <div style="height:8px;"></div>
+                <label style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:13px;cursor:pointer;">
+                  <input id="streak-fix-force-weekly" type="checkbox">
+                  <span>👑 지난주 풀출석 배지도 강제로 부여</span>
+                </label>
+                <div class="hint">보관 기간 확대 이전 기록이라 소급이 안 된 경우, 실제 연속일수를 직접 설정해요. 위 연속일수가 지난주(월~일)를 온전히 포함하면 👑 배지도 자동으로 함께 소급 적용돼요. 계산상 애매하면 체크박스로 직접 부여할 수 있어요. 이후부터는 매일 자동으로 이어서 카운트돼요.</div>
               </div>
 
               <!-- 채팅 전체 삭제 -->
