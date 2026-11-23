@@ -549,12 +549,89 @@
   // =====================================================
   // ✅ 멘션 파싱 (줄바꿈 + @멘션)
   // =====================================================
-  function parseMentions(text) {
-    const escaped = escapeHtml(text);
-    const withBr  = escaped.replace(/\n/g, "<br>");
-    return withBr.replace(/@([^\s@<>]+)/g, (_, nick) =>
+  // http(s) 링크: 공백·따옴표·꺾쇠·한글 앞에서 끊는다 ("https://a.com입니다" 대응)
+  const CHAT_URL_RE = /https?:\/\/[^\s<>"'ㄱ-ㆎ가-힣]+/g;
+
+  // 문장 끝 구두점은 링크에서 제외
+  const _trimUrl = (u) => u.replace(/[.,!?:;)\]}]+$/, "");
+
+  // 링크 미리보기 (외부 서비스 없음): 이미지 → 이미지, 유튜브 → 썸네일+제목, 그 외 → 주소 카드
+  const _ytTitleCache = new Map(); // videoId -> Promise<title>
+
+  function _youtubeId(u) {
+    const host = u.hostname.replace(/^(www|m|music)\./, "");
+    let id = "";
+    if (host === "youtu.be") id = u.pathname.slice(1);
+    else if (host === "youtube.com") {
+      id = u.pathname === "/watch"
+        ? (u.searchParams.get("v") || "")
+        : (u.pathname.match(/^\/(?:shorts|live|embed)\/([^/]+)/)?.[1] || "");
+    }
+    return /^[\w-]{11}$/.test(id) ? id : "";
+  }
+
+  function linkPreviewHtml(text) {
+    const first = (String(text || "").match(CHAT_URL_RE) || []).map(_trimUrl)[0];
+    let u;
+    try { u = new URL(first); } catch { return ""; }
+    const href = escapeHtml(u.href);
+    const open = `<a class="link-preview" href="${href}" target="_blank" rel="noopener noreferrer"`;
+
+    if (/\.(png|jpe?g|gif|webp)$/i.test(u.pathname)) {
+      return `${open}><img class="link-preview-img" src="${href}" alt="" loading="lazy"
+                referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></a>`;
+    }
+    const yt = _youtubeId(u);
+    if (yt) {
+      return `${open} data-yt="${yt}">
+                <img class="link-preview-thumb" src="https://i.ytimg.com/vi/${yt}/hqdefault.jpg" alt="" loading="lazy">
+                <span class="link-preview-title">YouTube</span>
+              </a>`;
+    }
+    const path = (u.pathname + u.search).replace(/^\/$/, "");
+    return `${open}>
+              <span class="link-preview-host">🔗 ${escapeHtml(u.hostname.replace(/^www\./, ""))}</span>
+              ${path ? `<span class="link-preview-path">${escapeHtml(decodeURIComponentSafe(path))}</span>` : ""}
+            </a>`;
+  }
+
+  function decodeURIComponentSafe(s) {
+    try { return decodeURIComponent(s); } catch { return s; }
+  }
+
+  // 유튜브 카드에 영상 제목 채우기 (YouTube oEmbed, 실패 시 "YouTube" 그대로)
+  function _fillYoutubeTitle(card) {
+    const id = card?.dataset.yt;
+    if (!id) return;
+    if (!_ytTitleCache.has(id)) {
+      const target = encodeURIComponent(`https://www.youtube.com/watch?v=${id}`);
+      _ytTitleCache.set(id, fetch(`https://www.youtube.com/oembed?format=json&url=${target}`)
+        .then(r => (r.ok ? r.json() : null)).then(j => j?.title || "").catch(() => ""));
+    }
+    _ytTitleCache.get(id).then(title => {
+      if (title) card.querySelector(".link-preview-title").textContent = title;
+    });
+  }
+
+  function _mentionHtml(text) {
+    return escapeHtml(text).replace(/\n/g, "<br>").replace(/@([^\s@<>]+)/g, (_, nick) =>
       `<span class="mention-tag">@${nick}</span>`
     );
+  }
+
+  // 링크는 새 탭으로 여는 <a>로, 나머지는 기존 멘션 처리
+  function parseMentions(text) {
+    const src = String(text ?? "");
+    let out = "", last = 0;
+    src.replace(CHAT_URL_RE, (m, idx) => {
+      const url = _trimUrl(m);
+      if (url.length <= 8) return m;
+      out += _mentionHtml(src.slice(last, idx));
+      out += `<a class="chat-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>`;
+      last = idx + url.length;
+      return m;
+    });
+    return out + _mentionHtml(src.slice(last));
   }
 
   function msgContainsMyMention(text) {
@@ -734,10 +811,12 @@
             <div class="${bubbleClass}" style="${bubbleStyle}">${msgHtml}</div>
             <div class="msg-time">${formatHHMM(time)}</div>
           </div>
+          ${isBigEmoji ? "" : linkPreviewHtml(rawMsg)}
         </div>
       </div>`;
 
     box.insertAdjacentHTML("beforeend", html);
+    _fillYoutubeTitle(box.lastElementChild.querySelector(".link-preview[data-yt]"));
     lastRendered = { user: data.user, ts: time, ymd: ymd(time), msg: rawMsg };
 
     if (mentionedMe) showMentionToast(data.user, data.emoji);
